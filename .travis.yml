@@ -7,7 +7,7 @@ go:
 
 install:
   - go get github.com/stretchr/testify
-  - go get github.com/nsf/jsondiff
+  - go get github.com/benitogf/jsondiff
 
 script:
   - go vet ./...
