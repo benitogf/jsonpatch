@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/nsf/jsondiff"
+	"github.com/benitogf/jsondiff"
 )
 
 func reformatJSON(j string) string {
