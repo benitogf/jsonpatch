@@ -20,11 +20,41 @@ var empty = `{}`
 var collection = `[{"created":1564944548180294000,"updated":0,"index":"15b7ccc66f7878a8","data":"eyJuYW1lIjoibmFtZTEifQ=="},{"created":1564944548172292600,"updated":0,"index":"15b7ccc66efe6194","data":"eyJuYW1lIjoibmFtZTAifQ=="}]`
 var emptyCollection = `[]`
 
+var collectionWindowBefore = `[{
+	"test":"1"
+},
+{
+	"test":"2"
+},
+{
+	"test":"3"
+}]`
+
+var collectionWindowAfter = `[{
+	"test":"2"
+},
+{
+	"test":"3"
+},
+{
+	"test":"4"
+}]`
+
 func TestMultipleRemove(t *testing.T) {
 	patch, e := CreatePatch([]byte(collection), []byte(emptyCollection))
 	assert.NoError(t, e)
 	assert.Equal(t, len(patch), 2, "the patch should be the same lenght as the collection")
 	assert.Equal(t, patch[0].Path, "/1", "the patch should have descending order by path")
+}
+
+func TestCollectionWindowMove(t *testing.T) {
+	patch, e := CreatePatch([]byte(collectionWindowBefore), []byte(collectionWindowAfter))
+	assert.NoError(t, e)
+	assert.Equal(t, 2, len(patch), "the patch should have one insert and one remove")
+	assert.Equal(t, "add", patch[0].Operation, "the patch should add on the last position")
+	assert.Equal(t, "/2", patch[0].Path, "the patch should have descending order by path")
+	assert.Equal(t, "remove", patch[1].Operation, "the patch should remove the first position")
+	assert.Equal(t, "/0", patch[1].Path, "the patch should have descending order by path")
 }
 
 func TestOneNullReplace(t *testing.T) {

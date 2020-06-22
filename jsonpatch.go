@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -107,6 +108,40 @@ func CreatePatch(a, b []byte) ([]Operation, error) {
 		keysOriginal := map[int]bool{}
 		for k := range original {
 			keysOriginal[k] = true
+		}
+
+		log.Println("modified", modified)
+
+		if len(modified) == len(original) {
+			// very specific case of a moving window of collections in ascending order
+			diffCount := 0
+			length := len(modified) - 1
+			for key := range modified {
+				// first element of the original cant be found in the modified
+				if key < length && string(original[0]) == string(modified[key]) {
+					diffCount++
+					break
+				}
+				// last element of the modified cant be found in the original
+				if key > 0 && string(modified[length]) == string(original[key]) {
+					log.Println(string(modified[0]), string(original[key]))
+					diffCount++
+					break
+				}
+				// other then first original and last modified all elements are the same
+				if key < length && string(original[key+1]) != string(modified[key]) {
+					diffCount++
+					break
+				}
+			}
+
+			if diffCount == 0 {
+				pFirst := makePath(path, 0)
+				pLast := makePath(path, length)
+				patch = append([]Operation{NewPatch("remove", pFirst, nil)}, patch...)
+				patch = append([]Operation{NewPatch("add", pLast, modified[0])}, patch...)
+				return patch, nil
+			}
 		}
 
 		for key, bv := range modified {
