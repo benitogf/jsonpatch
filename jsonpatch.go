@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -110,8 +109,6 @@ func CreatePatch(a, b []byte) ([]Operation, error) {
 			keysOriginal[k] = true
 		}
 
-		log.Println("modified", modified)
-
 		if len(modified) == len(original) {
 			// very specific case of a moving window of collections in ascending order
 			diffCount := 0
@@ -124,7 +121,6 @@ func CreatePatch(a, b []byte) ([]Operation, error) {
 				}
 				// last element of the modified cant be found in the original
 				if key > 0 && string(modified[length]) == string(original[key]) {
-					log.Println(string(modified[0]), string(original[key]))
 					diffCount++
 					break
 				}
