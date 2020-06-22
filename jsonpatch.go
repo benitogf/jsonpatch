@@ -134,8 +134,8 @@ func CreatePatch(a, b []byte) ([]Operation, error) {
 			if diffCount == 0 {
 				pFirst := makePath(path, 0)
 				pLast := makePath(path, length)
-				patch = append([]Operation{NewPatch("remove", pFirst, nil)}, patch...)
 				patch = append([]Operation{NewPatch("add", pLast, modified[0])}, patch...)
+				patch = append([]Operation{NewPatch("remove", pFirst, nil)}, patch...)
 				return patch, nil
 			}
 		}

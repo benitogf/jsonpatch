@@ -51,10 +51,10 @@ func TestCollectionWindowMove(t *testing.T) {
 	patch, e := CreatePatch([]byte(collectionWindowBefore), []byte(collectionWindowAfter))
 	assert.NoError(t, e)
 	assert.Equal(t, 2, len(patch), "the patch should have one insert and one remove")
-	assert.Equal(t, "add", patch[0].Operation, "the patch should add on the last position")
-	assert.Equal(t, "/2", patch[0].Path, "the patch should have descending order by path")
-	assert.Equal(t, "remove", patch[1].Operation, "the patch should remove the first position")
-	assert.Equal(t, "/0", patch[1].Path, "the patch should have descending order by path")
+	assert.Equal(t, "remove", patch[0].Operation, "the patch should remove the first position")
+	assert.Equal(t, "/0", patch[0].Path, "the patch should have descending order by path")
+	assert.Equal(t, "add", patch[1].Operation, "the patch should add on the last position")
+	assert.Equal(t, "/2", patch[1].Path, "the patch should have descending order by path")
 }
 
 func TestOneNullReplace(t *testing.T) {
