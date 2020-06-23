@@ -109,33 +109,61 @@ func CreatePatch(a, b []byte) ([]Operation, error) {
 			keysOriginal[k] = true
 		}
 
-		if len(modified) == len(original) {
-			// very specific case of a moving window of collections in ascending order
-			diffCount := 0
+		if len(modified) == len(original) && len(original) > 2 {
+			// moving window of collections in ascending order
+			diffAsc := 0
 			length := len(modified) - 1
 			for key := range modified {
 				// first element of the original cant be found in the modified
 				if key < length && string(original[0]) == string(modified[key]) {
-					diffCount++
+					diffAsc++
 					break
 				}
 				// last element of the modified cant be found in the original
 				if key > 0 && string(modified[length]) == string(original[key]) {
-					diffCount++
+					diffAsc++
 					break
 				}
-				// other then first original and last modified all elements are the same
+				// other than the first original and last modified all elements are the same
 				if key < length && string(original[key+1]) != string(modified[key]) {
-					diffCount++
+					diffAsc++
 					break
 				}
 			}
 
-			if diffCount == 0 {
+			if diffAsc == 0 {
 				pFirst := makePath(path, 0)
 				pLast := makePath(path, length)
 				patch = append([]Operation{NewPatch("add", pLast, modified[0])}, patch...)
 				patch = append([]Operation{NewPatch("remove", pFirst, nil)}, patch...)
+				return patch, nil
+			}
+
+			// moving window of collections in descending order
+			diffDsc := 0
+			for key := range modified {
+				// first element of the modified cant be found in the original
+				if key < length && string(modified[0]) == string(original[key]) {
+					diffDsc++
+					break
+				}
+				// last element of the original cant be found in the modified
+				if key > 0 && string(original[length]) == string(modified[key]) {
+					diffDsc++
+					break
+				}
+				// other than the first modified and last original all elements are the same
+				if key < length && string(modified[key+1]) != string(original[key]) {
+					diffDsc++
+					break
+				}
+			}
+
+			if diffDsc == 0 {
+				pFirst := makePath(path, 0)
+				pLast := makePath(path, length+1)
+				patch = append([]Operation{NewPatch("remove", pLast, nil)}, patch...)
+				patch = append([]Operation{NewPatch("add", pFirst, modified[0])}, patch...)
 				return patch, nil
 			}
 		}
