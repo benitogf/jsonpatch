@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var simpleA = `{"a":100, "b":200, "c":"hello"}`
@@ -70,20 +71,26 @@ func TestMultipleRemove(t *testing.T) {
 func TestCollectionWindowAscMove(t *testing.T) {
 	patch, e := CreatePatch([]byte(collectionWindowAscBefore), []byte(collectionWindowAscAfter))
 	assert.NoError(t, e)
-	assert.Equal(t, 2, len(patch), "the patch should have one insert and one remove")
-	assert.Equal(t, "remove", patch[0].Operation, "the patch should remove the first position")
-	assert.Equal(t, "/0", patch[0].Path, "the patch should have descending order by path")
+	assert.Equal(t, 2, len(patch), "the patch should have one add and one remove")
+	assert.Equal(t, "remove", patch[0].Operation, "the patch should remove on 0")
+	assert.Equal(t, "/0", patch[0].Path, "the patch should remove on 0")
 	assert.Equal(t, "add", patch[1].Operation, "the patch should add on the last position")
-	assert.Equal(t, "/2", patch[1].Path, "the patch should have descending order by path")
+	newEntry, err := json.Marshal(&patch[1].Value)
+	require.NoError(t, err)
+	assert.Equal(t, `{"test":"4"}`, string(newEntry))
+	assert.Equal(t, "/2", patch[1].Path, "the patch should add on the last position")
 }
 
 func TestCollectionWindowDscMove(t *testing.T) {
 	patch, e := CreatePatch([]byte(collectionWindowDscBefore), []byte(collectionWindowDscAfter))
 	assert.NoError(t, e)
-	assert.Equal(t, 2, len(patch), "the patch should have one insert and one remove")
-	assert.Equal(t, "add", patch[0].Operation, "the patch should remove the first position")
-	assert.Equal(t, "/0", patch[0].Path, "the patch should have descending order by path")
-	assert.Equal(t, "remove", patch[1].Operation, "the patch should add on the last position")
+	assert.Equal(t, 2, len(patch), "the patch should have one add and one remove")
+	assert.Equal(t, "add", patch[0].Operation, "the patch should add on 0")
+	assert.Equal(t, "/0", patch[0].Path, "the patch should add on 0")
+	newEntry, err := json.Marshal(&patch[0].Value)
+	require.NoError(t, err)
+	assert.Equal(t, `{"test":"4"}`, string(newEntry))
+	assert.Equal(t, "remove", patch[1].Operation, "the patch should remove last position")
 	assert.Equal(t, "/3", patch[1].Path, "the patch should have descending order by path")
 }
 
