@@ -395,12 +395,12 @@ func (d *partialArray) add(key string, val *lazyNode) error {
 	cur := *d
 
 	if idx >= len(ary) {
-		return fmt.Errorf("Unable to access invalid index: %d", idx)
+		return fmt.Errorf("(add) Unable to access invalid index: %d", idx)
 	}
 
 	if SupportNegativeIndices {
 		if idx < -len(ary) {
-			return fmt.Errorf("Unable to access invalid index: %d", idx)
+			return fmt.Errorf("(add) Unable to access invalid index: %d", idx)
 		}
 
 		if idx < 0 {
@@ -424,7 +424,7 @@ func (d *partialArray) get(key string) (*lazyNode, error) {
 	}
 
 	if idx >= len(*d) {
-		return nil, fmt.Errorf("Unable to access invalid index: %d", idx)
+		return nil, fmt.Errorf("(get) Unable to access invalid index: %d", idx)
 	}
 
 	return (*d)[idx], nil
@@ -439,12 +439,12 @@ func (d *partialArray) remove(key string) error {
 	cur := *d
 
 	if idx >= len(cur) {
-		return fmt.Errorf("Unable to access invalid index: %d", idx)
+		return fmt.Errorf("(remove) Unable to access invalid index: %d", idx)
 	}
 
 	if SupportNegativeIndices {
 		if idx < -len(cur) {
-			return fmt.Errorf("Unable to access invalid index: %d", idx)
+			return fmt.Errorf("(remove) Unable to access invalid index: %d", idx)
 		}
 
 		if idx < 0 {

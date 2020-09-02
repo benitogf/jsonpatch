@@ -174,7 +174,7 @@ func CreatePatch(a, b []byte) ([]Operation, error) {
 			_, found := keysOriginal[key]
 			// value was added
 			if !found {
-				patch = append([]Operation{NewPatch("add", p, bv)}, patch...)
+				patch = append(patch, NewPatch("add", p, bv))
 				continue
 			}
 			av := original[key]
