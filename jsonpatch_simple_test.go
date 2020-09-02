@@ -61,6 +61,17 @@ var collectionWindowDscAfter = `[{
 	"test":"2"
 }]`
 
+var collectionOne = `[{
+	"test":"1"
+}]`
+
+var collectionTwo = `[{
+	"test":"2"
+},
+{
+	"test":"1"
+}]`
+
 func TestMultipleRemove(t *testing.T) {
 	patch, e := CreatePatch([]byte(collection), []byte(emptyCollection))
 	assert.NoError(t, e)
@@ -92,6 +103,22 @@ func TestCollectionWindowDscMove(t *testing.T) {
 	assert.Equal(t, `{"test":"4"}`, string(newEntry))
 	assert.Equal(t, "remove", patch[1].Operation, "the patch should remove last position")
 	assert.Equal(t, "/3", patch[1].Path, "the patch should have descending order by path")
+}
+
+func TestCollectionAdd(t *testing.T) {
+	patch, e := CreatePatch([]byte(collectionOne), []byte(collectionTwo))
+	assert.NoError(t, e)
+	assert.Equal(t, 2, len(patch), "the patch should have one add")
+	assert.Equal(t, "replace", patch[0].Operation, "the patch should add on 0")
+	assert.Equal(t, "/0/test", patch[0].Path, "the patch should add on 0")
+	assert.Equal(t, "add", patch[1].Operation, "the patch should add on 1")
+	assert.Equal(t, "/1", patch[1].Path, "the patch should add on 1")
+	newEntry, err := json.Marshal(&patch[1].Value)
+	require.NoError(t, err)
+	assert.Equal(t, `{"test":"1"}`, string(newEntry))
+	newEntry, err = json.Marshal(&patch[0].Value)
+	require.NoError(t, err)
+	assert.Equal(t, `"2"`, string(newEntry))
 }
 
 func TestOneNullReplace(t *testing.T) {
