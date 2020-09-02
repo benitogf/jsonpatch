@@ -6,7 +6,7 @@ go:
   - 1.11.x
 
 install:
-  - env GO111MODULE=on go get -u github.com/stretchr/testify
+  - go get -u github.com/stretchr/testify
   - go get -u github.com/benitogf/jsondiff
 
 script:
