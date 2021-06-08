@@ -1,10 +1,6 @@
 # jsonpatch
 
-[![Build Status][build-image]][build-url]
-
-
-[build-url]: https://travis-ci.com/benitogf/jsonpatch
-[build-image]: https://api.travis-ci.com/benitogf/jsonpatch.svg?branch=master&style=flat-square
+[![Test](https://github.com/benitogf/jsonpatch/actions/workflows/tests.yml/badge.svg)](https://github.com/benitogf/jsonpatch/actions/workflows/tests.yml)
 
 As per http://jsonpatch.com/ JSON Patch is specified in RFC 6902 from the IETF.
 
