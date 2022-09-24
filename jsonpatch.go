@@ -2,15 +2,15 @@ package jsonpatch
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/goccy/go-json"
 )
 
-var errBadJSONDoc = fmt.Errorf("Invalid JSON Document")
-var errBadMergeTypes = fmt.Errorf("Mismatched JSON Documents")
+var errBadMergeTypes = fmt.Errorf("mismatched json documents")
 
 // Operation operation struct
 type Operation struct {

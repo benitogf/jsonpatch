@@ -1,9 +1,10 @@
 package jsonpatch
 
 import (
-	"encoding/json"
 	"sort"
 	"testing"
+
+	"github.com/goccy/go-json"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
