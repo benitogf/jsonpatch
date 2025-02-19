@@ -384,36 +384,49 @@ func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation,
 	return patch, nil
 }
 
+// https://github.com/mattbaird/jsonpatch/pull/4
+// compareArray generates remove and add operations for `av` and `bv`.
 func compareArray(av, bv []interface{}, p string) []Operation {
 	retval := []Operation{}
-	//	var err error
-	for i, v := range av {
-		found := false
-		for _, v2 := range bv {
-			if reflect.DeepEqual(v, v2) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			retval = append([]Operation{NewPatch("remove", makePath(p, i), nil)}, retval...)
-		}
-	}
 
-	for i, v := range bv {
-		found := false
-		for _, v2 := range av {
-			if reflect.DeepEqual(v, v2) {
-				found = true
-				break
-			}
-		}
-
-		newElementButEqualToAnExistingOne := found && i >= len(av)
-		if !found || newElementButEqualToAnExistingOne {
-			retval = append([]Operation{NewPatch("add", makePath(p, i), v)}, retval...)
-		}
+	// Find elements that need to be removed
+	processArray(av, bv, func(i int, value interface{}) {
+		retval = append(retval, NewPatch("remove", makePath(p, i), nil))
+	})
+	reversed := make([]Operation, len(retval))
+	for i := 0; i < len(retval); i++ {
+		reversed[len(retval)-1-i] = retval[i]
 	}
+	retval = reversed
+	// Find elements that need to be added.
+	// NOTE we pass in `bv` then `av` so that processArray can find the missing elements.
+	processArray(bv, av, func(i int, value interface{}) {
+		retval = append(retval, NewPatch("add", makePath(p, i), value))
+	})
 
 	return retval
+}
+
+// processArray processes `av` and `bv` calling `applyOp` whenever a value is absent.
+// It keeps track of which indexes have already had `applyOp` called for and automatically skips them so you can process duplicate objects correctly.
+func processArray(av, bv []interface{}, applyOp func(i int, value interface{})) {
+	foundIndexes := make(map[int]struct{}, len(av))
+	reverseFoundIndexes := make(map[int]struct{}, len(av))
+	for i, v := range av {
+		for i2, v2 := range bv {
+			if _, ok := reverseFoundIndexes[i2]; ok {
+				// We already found this index.
+				continue
+			}
+			if reflect.DeepEqual(v, v2) {
+				// Mark this index as found since it matches exactly.
+				foundIndexes[i] = struct{}{}
+				reverseFoundIndexes[i2] = struct{}{}
+				break
+			}
+		}
+		if _, ok := foundIndexes[i]; !ok {
+			applyOp(i, v)
+		}
+	}
 }
