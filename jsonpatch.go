@@ -408,7 +408,9 @@ func compareArray(av, bv []interface{}, p string) []Operation {
 				break
 			}
 		}
-		if !found {
+
+		newElementButEqualToAnExistingOne := found && i >= len(av)
+		if !found || newElementButEqualToAnExistingOne {
 			retval = append([]Operation{NewPatch("add", makePath(p, i), v)}, retval...)
 		}
 	}
