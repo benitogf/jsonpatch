@@ -1,2 +1,5 @@
 debug.*
 cover.*
+cpu.prof
+mem.prof
+jsonpatch.test

@@ -2,13 +2,11 @@ package jsonpatch
 
 import (
 	"bytes"
-	"encoding/json"
-
-	gojson "github.com/goccy/go-json"
-
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/goccy/go-json"
 )
 
 const (
@@ -54,8 +52,14 @@ func newLazyNode(raw *json.RawMessage) *lazyNode {
 }
 
 func (n *lazyNode) MarshalJSON() ([]byte, error) {
+	if n == nil {
+		return []byte("null"), nil
+	}
 	switch n.which {
 	case eRaw:
+		if n.raw == nil {
+			return []byte("null"), nil
+		}
 		return json.Marshal(n.raw)
 	case eDoc:
 		return json.Marshal(n.doc)
@@ -97,7 +101,7 @@ func (n *lazyNode) intoDoc() (*partialDoc, error) {
 		return nil, fmt.Errorf("unable to unmarshal nil pointer as partial document")
 	}
 
-	err := gojson.Unmarshal(*n.raw, &n.doc)
+	err := json.Unmarshal(*n.raw, &n.doc)
 
 	if err != nil {
 		return nil, err
@@ -116,7 +120,7 @@ func (n *lazyNode) intoAry() (*partialArray, error) {
 		return nil, fmt.Errorf("unable to unmarshal nil pointer as partial array")
 	}
 
-	err := gojson.Unmarshal(*n.raw, &n.ary)
+	err := json.Unmarshal(*n.raw, &n.ary)
 
 	if err != nil {
 		return nil, err
@@ -147,7 +151,7 @@ func (n *lazyNode) tryDoc() bool {
 		return false
 	}
 
-	err := gojson.Unmarshal(*n.raw, &n.doc)
+	err := json.Unmarshal(*n.raw, &n.doc)
 
 	if err != nil {
 		return false
@@ -162,7 +166,7 @@ func (n *lazyNode) tryAry() bool {
 		return false
 	}
 
-	err := gojson.Unmarshal(*n.raw, &n.ary)
+	err := json.Unmarshal(*n.raw, &n.ary)
 
 	if err != nil {
 		return false
@@ -194,6 +198,11 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 			return false
 		}
 
+		// Check that both maps have the same number of keys
+		if len(n.doc) != len(o.doc) {
+			return false
+		}
+
 		for k, v := range n.doc {
 			ov, ok := o.doc[k]
 
@@ -203,6 +212,10 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 
 			if v == nil && ov == nil {
 				continue
+			}
+
+			if v == nil || ov == nil {
+				return false
 			}
 
 			if !v.equal(ov) {
@@ -234,7 +247,7 @@ func (o operation) kind() string {
 	if obj, ok := o["op"]; ok && obj != nil {
 		var op string
 
-		err := gojson.Unmarshal(*obj, &op)
+		err := json.Unmarshal(*obj, &op)
 
 		if err != nil {
 			return "unknown"
@@ -250,7 +263,7 @@ func (o operation) path() string {
 	if obj, ok := o["path"]; ok && obj != nil {
 		var op string
 
-		err := gojson.Unmarshal(*obj, &op)
+		err := json.Unmarshal(*obj, &op)
 
 		if err != nil {
 			return "unknown"
@@ -266,7 +279,7 @@ func (o operation) from() string {
 	if obj, ok := o["from"]; ok && obj != nil {
 		var op string
 
-		err := gojson.Unmarshal(*obj, &op)
+		err := json.Unmarshal(*obj, &op)
 
 		if err != nil {
 			return "unknown"
@@ -618,7 +631,7 @@ func Equal(a, b []byte) bool {
 func DecodePatch(buf []byte) (Patch, error) {
 	var p Patch
 
-	err := gojson.Unmarshal(buf, &p)
+	err := json.Unmarshal(buf, &p)
 
 	if err != nil {
 		return nil, err
@@ -643,7 +656,7 @@ func (p Patch) ApplyIndent(doc []byte, indent string) ([]byte, error) {
 		pd = &partialDoc{}
 	}
 
-	err := gojson.Unmarshal(doc, pd)
+	err := json.Unmarshal(doc, pd)
 
 	if err != nil {
 		return nil, err
