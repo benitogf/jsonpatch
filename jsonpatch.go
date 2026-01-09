@@ -3,7 +3,6 @@ package jsonpatch
 import (
 	"bytes"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -179,8 +178,8 @@ func CreatePatch(a, b []byte) ([]Operation, error) {
 			}
 			av := original[key]
 			// If types have changed, replace completely
-			if reflect.TypeOf(av) != reflect.TypeOf(bv) {
-				patch = append([]Operation{NewPatch("replace", p, bv)}, patch...)
+			if !sameRawType(av, bv) {
+				patch = append(patch, NewPatch("replace", p, bv))
 				continue
 			}
 			// Types are the same, compare values
@@ -190,12 +189,18 @@ func CreatePatch(a, b []byte) ([]Operation, error) {
 			}
 		}
 		// Now add all deleted values as nil
+		// Collect removes and sort in descending order so indices remain valid when applying
+		removes := make([]int, 0)
 		for key := range original {
 			_, found := keysModified[key]
 			if !found {
-				p := makePath(path, key)
-				patch = append([]Operation{NewPatch("remove", p, nil)}, patch...)
+				removes = append(removes, key)
 			}
+		}
+		sortDescending(removes)
+		for _, key := range removes {
+			p := makePath(path, key)
+			patch = append(patch, NewPatch("remove", p, nil))
 		}
 
 		return patch, nil
@@ -233,41 +238,19 @@ func diffObjects(a, b []byte, key string, patch []Operation) ([]Operation, error
 // The types of the values must match, otherwise it will always return false
 // If two map[string]interface{} are given, all elements must match.
 func matchesValue(av, bv interface{}) bool {
-	if reflect.TypeOf(av) != reflect.TypeOf(bv) {
-		return false
-	}
 	switch at := av.(type) {
 	case string:
-		bt := bv.(string)
-		if bt == at {
-			return true
-		}
+		bt, ok := bv.(string)
+		return ok && bt == at
 	case json.Number:
-		bt := bv.(json.Number)
-		if bt == at {
-			return true
-		}
+		bt, ok := bv.(json.Number)
+		return ok && bt == at
 	case bool:
-		bt := bv.(bool)
-		if bt == at {
-			return true
-		}
+		bt, ok := bv.(bool)
+		return ok && bt == at
 	case map[string]interface{}:
-		bt := bv.(map[string]interface{})
-		for key := range at {
-			if !matchesValue(at[key], bt[key]) {
-				return false
-			}
-		}
-		for key := range bt {
-			if !matchesValue(at[key], bt[key]) {
-				return false
-			}
-		}
-		return true
-	case []interface{}:
-		bt := bv.([]interface{})
-		if len(bt) != len(at) {
+		bt, ok := bv.(map[string]interface{})
+		if !ok || len(at) != len(bt) {
 			return false
 		}
 		for key := range at {
@@ -275,12 +258,20 @@ func matchesValue(av, bv interface{}) bool {
 				return false
 			}
 		}
-		for key := range bt {
+		return true
+	case []interface{}:
+		bt, ok := bv.([]interface{})
+		if !ok || len(bt) != len(at) {
+			return false
+		}
+		for key := range at {
 			if !matchesValue(at[key], bt[key]) {
 				return false
 			}
 		}
 		return true
+	case nil:
+		return bv == nil
 	}
 	return false
 }
@@ -297,7 +288,15 @@ func matchesValue(av, bv interface{}) bool {
 var rfc6901Encoder = strings.NewReplacer("~", "~0", "/", "~1")
 
 func makePath(path string, newPart interface{}) string {
-	key := rfc6901Encoder.Replace(fmt.Sprintf("%v", newPart))
+	var key string
+	switch v := newPart.(type) {
+	case int:
+		key = strconv.Itoa(v)
+	case string:
+		key = rfc6901Encoder.Replace(v)
+	default:
+		key = rfc6901Encoder.Replace(fmt.Sprintf("%v", newPart))
+	}
 	if path == "" {
 		return "/" + key
 	}
@@ -314,12 +313,12 @@ func diff(a, b map[string]interface{}, path string, patch []Operation) ([]Operat
 		av, ok := a[key]
 		// value was added
 		if !ok {
-			patch = append([]Operation{NewPatch("add", p, bv)}, patch...)
+			patch = append(patch, NewPatch("add", p, bv))
 			continue
 		}
 		// If types have changed, replace completely
-		if reflect.TypeOf(av) != reflect.TypeOf(bv) {
-			patch = append([]Operation{NewPatch("replace", p, bv)}, patch...)
+		if !sameType(av, bv) {
+			patch = append(patch, NewPatch("replace", p, bv))
 			continue
 		}
 		// Types are the same, compare values
@@ -334,11 +333,59 @@ func diff(a, b map[string]interface{}, path string, patch []Operation) ([]Operat
 		_, found := b[key]
 		if !found {
 			p := makePath(path, key)
-
-			patch = append([]Operation{NewPatch("remove", p, nil)}, patch...)
+			patch = append(patch, NewPatch("remove", p, nil))
 		}
 	}
 	return patch, nil
+}
+
+// sameType checks if two interface values have the same underlying type
+// without using reflect.TypeOf which allocates.
+func sameType(a, b interface{}) bool {
+	switch a.(type) {
+	case string:
+		_, ok := b.(string)
+		return ok
+	case json.Number:
+		_, ok := b.(json.Number)
+		return ok
+	case bool:
+		_, ok := b.(bool)
+		return ok
+	case map[string]interface{}:
+		_, ok := b.(map[string]interface{})
+		return ok
+	case []interface{}:
+		_, ok := b.([]interface{})
+		return ok
+	case nil:
+		return b == nil
+	}
+	return false
+}
+
+// sameRawType checks if two json.RawMessage values represent the same JSON type.
+func sameRawType(a, b json.RawMessage) bool {
+	if len(a) == 0 || len(b) == 0 {
+		return len(a) == len(b)
+	}
+	// Compare first non-whitespace character to determine type
+	aType := jsonType(a)
+	bType := jsonType(b)
+	return aType == bType
+}
+
+// jsonType returns a byte representing the JSON type based on first character.
+func jsonType(data json.RawMessage) byte {
+	for _, c := range data {
+		switch c {
+		case ' ', '\t', '\n', '\r':
+			continue
+		default:
+			return c
+		}
+	}
+	return 0
 }
 
 func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation, error) {
@@ -352,17 +399,16 @@ func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation,
 		}
 	case string, json.Number, bool:
 		if !matchesValue(av, bv) {
-			patch = append([]Operation{NewPatch("replace", p, bv)}, patch...)
+			patch = append(patch, NewPatch("replace", p, bv))
 		}
 	case []interface{}:
 		bt, ok := bv.([]interface{})
 		if !ok {
 			// array replaced by non-array
-			patch = append([]Operation{NewPatch("replace", p, bv)}, patch...)
+			patch = append(patch, NewPatch("replace", p, bv))
 		} else if len(at) != len(bt) {
 			// arrays are not the same length
 			patch = append(patch, compareArray(at, bt, p)...)
-
 		} else {
 			for i := range bt {
 				patch, err = handleValues(at[i], bt[i], makePath(p, i), patch)
@@ -372,11 +418,8 @@ func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation,
 			}
 		}
 	case nil:
-		switch bv.(type) {
-		case nil:
-			// Both nil, fine.
-		default:
-			patch = append([]Operation{NewPatch("add", p, bv)}, patch...)
+		if bv != nil {
+			patch = append(patch, NewPatch("add", p, bv))
 		}
 	default:
 		panic(fmt.Sprintf("Unknown type:%T ", av))
@@ -384,49 +427,102 @@ func handleValues(av, bv interface{}, p string, patch []Operation) ([]Operation,
 	return patch, nil
 }
 
+// hashValue creates a hash key for an interface value for O(1) lookups.
+// Returns the JSON representation as a string key.
+func hashValue(v interface{}) string {
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+// sortDescending sorts a slice of ints in descending order.
+func sortDescending(s []int) {
+	for i := 1; i < len(s); i++ {
+		for j := i; j > 0 && s[j] > s[j-1]; j-- {
+			s[j], s[j-1] = s[j-1], s[j]
+		}
+	}
+}
+
+// arrayDiff represents a value with its count for handling duplicates.
+type arrayDiff struct {
+	indices []int
+}
+
 // https://github.com/mattbaird/jsonpatch/pull/4
 // compareArray generates remove and add operations for `av` and `bv`.
 func compareArray(av, bv []interface{}, p string) []Operation {
-	retval := []Operation{}
-
-	// Find elements that need to be removed
-	processArray(av, bv, func(i int, value interface{}) {
-		retval = append(retval, NewPatch("remove", makePath(p, i), nil))
-	})
-	reversed := make([]Operation, len(retval))
-	for i := 0; i < len(retval); i++ {
-		reversed[len(retval)-1-i] = retval[i]
+	// Build hash map of bv elements with their indices
+	bvMap := make(map[string]*arrayDiff, len(bv))
+	for i, v := range bv {
+		h := hashValue(v)
+		if entry, ok := bvMap[h]; ok {
+			entry.indices = append(entry.indices, i)
+		} else {
+			bvMap[h] = &arrayDiff{indices: []int{i}}
+		}
 	}
-	retval = reversed
-	// Find elements that need to be added.
-	// NOTE we pass in `bv` then `av` so that processArray can find the missing elements.
-	processArray(bv, av, func(i int, value interface{}) {
-		retval = append(retval, NewPatch("add", makePath(p, i), value))
-	})
+
+	// Build hash map of av elements with their indices
+	avMap := make(map[string]*arrayDiff, len(av))
+	for i, v := range av {
+		h := hashValue(v)
+		if entry, ok := avMap[h]; ok {
+			entry.indices = append(entry.indices, i)
+		} else {
+			avMap[h] = &arrayDiff{indices: []int{i}}
+		}
+	}
+
+	// Find elements to remove (in av but not in bv, or more occurrences in av)
+	removes := make([]int, 0)
+	for h, avEntry := range avMap {
+		bvEntry, ok := bvMap[h]
+		if !ok {
+			// All occurrences need to be removed
+			removes = append(removes, avEntry.indices...)
+		} else if len(avEntry.indices) > len(bvEntry.indices) {
+			// Remove excess occurrences
+			excess := len(avEntry.indices) - len(bvEntry.indices)
+			removes = append(removes, avEntry.indices[len(avEntry.indices)-excess:]...)
+		}
+	}
+
+	// Sort removes in descending order so indices remain valid when applying patch
+	sortDescending(removes)
+
+	retval := make([]Operation, 0, len(removes))
+	for _, idx := range removes {
+		retval = append(retval, NewPatch("remove", makePath(p, idx), nil))
+	}
+
+	// Find elements to add (in bv but not in av, or more occurrences in bv)
+	adds := make([]int, 0)
+	for h, bvEntry := range bvMap {
+		avEntry, ok := avMap[h]
+		if !ok {
+			// All occurrences need to be added
+			adds = append(adds, bvEntry.indices...)
+		} else if len(bvEntry.indices) > len(avEntry.indices) {
+			// Add excess occurrences
+			excess := len(bvEntry.indices) - len(avEntry.indices)
+			adds = append(adds, bvEntry.indices[len(bvEntry.indices)-excess:]...)
+		}
+	}
+
+	// Sort adds in ascending order for proper patch application
+	sortAscending(adds)
+	for _, idx := range adds {
+		retval = append(retval, NewPatch("add", makePath(p, idx), bv[idx]))
+	}
 
 	return retval
 }
 
-// processArray processes `av` and `bv` calling `applyOp` whenever a value is absent.
-// It keeps track of which indexes have already had `applyOp` called for and automatically skips them so you can process duplicate objects correctly.
-func processArray(av, bv []interface{}, applyOp func(i int, value interface{})) {
-	foundIndexes := make(map[int]struct{}, len(av))
-	reverseFoundIndexes := make(map[int]struct{}, len(av))
-	for i, v := range av {
-		for i2, v2 := range bv {
-			if _, ok := reverseFoundIndexes[i2]; ok {
-				// We already found this index.
-				continue
-			}
-			if reflect.DeepEqual(v, v2) {
-				// Mark this index as found since it matches exactly.
-				foundIndexes[i] = struct{}{}
-				reverseFoundIndexes[i2] = struct{}{}
-				break
-			}
-		}
-		if _, ok := foundIndexes[i]; !ok {
-			applyOp(i, v)
+// sortAscending sorts a slice of ints in ascending order.
+func sortAscending(s []int) {
+	for i := 1; i < len(s); i++ {
+		for j := i; j > 0 && s[j] < s[j-1]; j-- {
+			s[j], s[j-1] = s[j-1], s[j]
 		}
 	}
 }
