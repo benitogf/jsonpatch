@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/goccy/go-json"
+	"github.com/benitogf/go-json"
 )
 
 var errBadMergeTypes = fmt.Errorf("mismatched json documents")

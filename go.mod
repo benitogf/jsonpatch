@@ -3,8 +3,8 @@ module github.com/benitogf/jsonpatch
 go 1.19
 
 require (
+	github.com/benitogf/go-json v0.0.0-20260410172501-727f5690408b
 	github.com/benitogf/jsondiff v0.0.0-20200402083139-355fc2c95658
-	github.com/goccy/go-json v0.9.11
 	github.com/stretchr/testify v1.6.1
 )
 
